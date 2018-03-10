@@ -1,6 +1,6 @@
 {
   "name": "igorvolnyi/yii2-modal-ajax-multi",
-  "description": "A wrapper around Yii2 Bootstrap Modal for using an ActiveForm via AJAX inside supporting multiple stacked or nested modal forms",
+  "description": "Widget for Yii2 framework. Create referenced data in stacked modal dialogs using AJAX.",
   "keywords": [
     "yii2",
     "bootstrap",
@@ -24,5 +24,11 @@
     "psr-4": {
       "igorvolnyi\\widgets\\modal\\": "/src"
     }
+  },
+  "require": {
+    "php": ">=5.4.0",
+    "yiisoft/yii2": "~2.0.14",
+    "yiisoft/yii2-bootstrap": "~2.0",
+    "bower-asset/jquery": "3.3.*@stable | 3.2.*@stable"
   }
 }

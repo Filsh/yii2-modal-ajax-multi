@@ -1,16 +1,16 @@
 (function ($) {
     "use strict";
 
-    var pluginName = 'ModalAjaxMulti';
+    var pluginName = 'modalAjaxMulti';
 
     /**
      * Retrieves the script tags in document
      * @return {Array}
      */
-    var getPageScriptTags = function () {
+    function getPageScriptTags() {
         var scripts = [];
-        jQuery('script[src]').each(function () {
-            scripts.push(jQuery(this).attr('src'));
+        $('script[src]').each(function () {
+            scripts.push($(this).attr('src'));
         });
         return scripts;
     };
@@ -20,55 +20,59 @@
      * Retrieves the CSS links in document
      * @return {Array}
      */
-    var getPageCssLinks = function () {
+    function getPageCssLinks() {
         var links = [];
-        jQuery('link[rel="stylesheet"]').each(function () {
-            links.push(jQuery(this).attr('href'));
+        $('link[rel="stylesheet"]').each(function () {
+            links.push($(this).attr('href'));
         });
         return links;
     };
 
     function ModalAjaxMulti(element, options) {
         this.element = element;
-        this.init(options);
-    }
-
-    ModalAjaxMulti.prototype.init = function (options) {
-        this.selector = options.selector || null;
+        // this.selector = options.selector || null;
         this.initalRequestUrl = options.url;
-        this.ajaxSubmit = ((options.ajaxSubmit != null) ? options.ajaxSubmit : true);
 		
-        jQuery(this.element).on('show.bs.modal', function () {
+        $(this.element).on('show.bs.modal', function () {
 
-            // Request the content of the modal and inject it, called after the modal is shown
+            // Request the content of the modal and inject it.
             
-            if (jQuery(this.element).hasClass('in'))
-            {
+            if ($(this.element).hasClass('in')) {
                 return;
             }
             
             // Clear original html before loading
-            jQuery(this.element).find('.modal-body').html('<div class="modal-ajax-loader"></div>');
+            $(this.element).find('.modal-body').html('<div class="modal-ajax-loader"></div>');
     
-            jQuery.ajax({
+            $.ajax({
                 url: this.initalRequestUrl,
                 context: this,
                 beforeSend: function (xhr, settings) {
-                    jQuery(this.element).triggerHandler('kbModalBeforeShow', [xhr, settings]);
+                    $(this.element).triggerHandler('beforeShow.mam', [xhr, settings]);
                 },
                 success: function (data, status, xhr) {
-                    var self = this;
+                    this.injectHtml(data);
+                    $(this.element).find('form').off('submit').on('submit', this.formSubmit.bind(self));
+                    $(this.element).triggerHandler('show.mam', [data, status, xhr, self.selector]);
                     
-                    this.injectHtml(data, function()
-                    {
-                        if (self.ajaxSubmit) {
-                            jQuery(self.element).off('submit').on('submit', self.formSubmit.bind(self));
-                        }
-                        
-                        jQuery(self.element).triggerHandler('kbModalShow', [data, status, xhr, self.selector]);
-                    });
+                    // Code from https://stackoverflow.com/questions/19305821/multiple-modals-overlay
+                    var zIndex = 1040 + (10 * $(this.element + ':visible').length);
+                    $(this).css('z-index', zIndex);
+                    setTimeout(function() {
+                        $('.modal-backdrop').not('.modal-stack').css('z-index', zIndex - 1).addClass('modal-stack');
+                    }, 0);
                 }
             });
+        });
+        $(this.element).on('hidden.bs.modal', function () {
+            if ($(this.element + ':visible').length > 0) {
+                // restore the modal-open class to the body element, so that scrolling works
+                // properly after de-stacking a modal.
+                setTimeout(function() {
+                    $(document.body).addClass('modal-open');
+                }, 0);
+            }
+            $(this.element).triggerHandler('hidden.mam', [data, status, xhr, self.selector]);
         });
     };
 
@@ -78,11 +82,11 @@
      */
     ModalAjaxMulti.prototype.injectHtml = function (html, callback) {
         // Find form and inject it
-        //var form = jQuery(html).filter('form');
+        //var form = $(html).filter('form');
 
         // Remove existing forms
-        if (jQuery(this.element).find('form').length > 0) {
-            jQuery(this.element).find('form').off().yiiActiveForm('destroy').remove();
+        if ($(this.element).find('form').length > 0) {
+            $(this.element).find('form').off().yiiActiveForm('destroy').remove();
         }
 
         var knownScripts = getPageScriptTags();
@@ -92,62 +96,59 @@
         var loadedScriptsCount = 0;
 
         // Find some element to append to
-        var headTag = jQuery('head');
+        var headTag = $('head');
         if (headTag.length < 1) {
-            headTag = jQuery('body');
+            headTag = $('body');
             if (headTag.length < 1) {
-                headTag = jQuery(document);
+                headTag = $(document);
             }
         }
 
         // CSS stylesheets that haven't been added need to be loaded
-        jQuery(html).filter('link[rel="stylesheet"]').each(function () {
-            var href = jQuery(this).attr('href');
+        $(html).filter('link[rel="stylesheet"]').each(function () {
+            var href = $(this).attr('href');
 
             if (knownCssLinks.indexOf(href) < 0) {
                 // Append the CSS link to the page
-                headTag.append(jQuery(this).prop('outerHTML'));
+                headTag.append($(this).prop('outerHTML'));
                 // Store the link so its not needed to be requested again
                 knownCssLinks.push(href);
             }
         });
 
-        // Scripts that haven't yet been loaded need to be added to the end of the body
-        jQuery(html).filter('script').each(function () {
-            var src = jQuery(this).attr("src");
+        // Scripts that haven't yet been loaded need to be added to the end of the body.
+        // Also remove scripts that are already on page.
+        $(html).filter('script').each(function () {
+            var src = $(this).attr("src");
 
             if (typeof src === 'undefined') {
-                // If no src supplied, execute the raw JS (need to execute after the script tags have been loaded)
-                inlineInjections.push(jQuery(this).text());
-            } else if (knownScripts.indexOf(src) < 0) {
+                // If no src supplied, then this is raw JS. Execute it
+                // (need to execute after the script tags have been loaded)
+                inlineInjections.push($(this).text());
+            }
+            else if (knownScripts.indexOf(src) < 0) {
                 // Prepare src so we can append GET parameter later
                 src += (src.indexOf('?') < 0) ? '?' : '&';
                 newScripts.push(src);
             }
+            else {
+                html = $(html).not(this.element).html();
+            }
         });
 		
-		var injectionElement = jQuery(this.element).find('.modal-body'); //[0];
+		var injectionElement = $(this.element).find('.modal-body');
 		
-		var doInjection = function()
-		{
+		function doInjection() {
 			injectionElement.html(html);
 			
 			// Execute inline scripts
 			for (var i = 0; i < inlineInjections.length; i += 1) {
 				window.eval(inlineInjections[i]);
 			}
-			
-			if (callback != null)
-			{
-				callback();
-			}
 		};
 		
-		if (newScripts.length > 0)
-		{
-			/**
-			 * Scripts loaded callback
-			 */
+		if (newScripts.length > 0) {
+			// Scripts loaded callback
 			var scriptLoaded = function () {
 				loadedScriptsCount += 1;
 				if (loadedScriptsCount === newScripts.length) {
@@ -157,11 +158,10 @@
 
 			// Load each script tag
 			for (var i = 0; i < newScripts.length; i += 1) {
-				jQuery.getScript(newScripts[i] + (new Date().getTime()), scriptLoaded);
+				$.getScript(newScripts[i] + (new Date().getTime()), scriptLoaded);
 			}
 		}
-		else
-		{
+		else {
 			doInjection();
 		}
     };
@@ -169,17 +169,17 @@
     /**
      * Adds event handlers to the form to check for submit
      */
-    ModalAjaxMulti.prototype.formSubmit = function (e) {
-		var form = jQuery(e.target);
+    ModalAjaxMulti.prototype.formSubmit = function (event) {
+		var form = $(event.target);
 		
         // Convert form to ajax submit
-        jQuery.ajax({
+        $.ajax({
             method: form.attr('method'),
             url: form.attr('action'),
             data: form.serialize(),
             context: this,
             beforeSend: function (xhr, settings) {
-                jQuery(this.element).triggerHandler('kbModalBeforeSubmit', [xhr, settings]);
+                $(this.element).triggerHandler('beforeSubmit.mam', [xhr, settings]);
             },
             success: function (data, status, xhr) {
                 var contentType = xhr.getResponseHeader('content-type') || '';
@@ -188,14 +188,14 @@
                     this.injectHtml(data);
                     status = false;
                 }
-				else if (typeof data == "object" && data.msg != null && data.msg != '' && jQuery.notify != null)
+				else if (typeof data == "object" && data.msg != null && data.msg != '' && $.notify != null)
 				{
-					jQuery.notify(data.msg, {
+					$.notify(data.msg, {
 						className: "success",
 						position: "top right"
 					});
 				}
-                jQuery(this.element).triggerHandler('kbModalSubmit', [data, status, xhr, this.selector]);
+                $(this.element).triggerHandler('submit.mam', [data, status, xhr, this.selector]);
             }
         });
 
@@ -208,7 +208,7 @@
                 $.data(this, pluginName, new ModalAjaxMulti(this, options));
             } else {
                 $.data(this, pluginName).initalRequestUrl = options.url;
-                $.data(this, pluginName).selector = options.selector || null;
+                //$.data(this, pluginName).selector = options.selector || null;
                 //console.log($.data(this, pluginName).initalRequestUrl);
             }
         });

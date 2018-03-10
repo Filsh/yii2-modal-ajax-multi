@@ -17,16 +17,17 @@ use yii\helpers\ArrayHelper;
  */
 class ModalAjaxMulti extends Modal
 {
-    const MODE_SINGLE = 'id';
-    const MODE_MULTI = 'multi';
+    // const MODE_SINGLE = 'id';
+    // const MODE_MULTI = 'multi';
 
     /**
      * events
+     * mam stands for ModalAjaxMulti. Read about namespaces in jQuery documentation about events.
      */
-    const EVENT_BEFORE_SHOW = 'ModalBeforeShow';
-    const EVENT_MODAL_SHOW = 'ModalShow';
-    const EVENT_BEFORE_SUBMIT = 'ModalBeforeSubmit';
-    const EVENT_MODAL_SUBMIT = 'ModalSubmit';
+    // const EVENT_BEFORE_SHOW = 'beforeShow.mam';
+    // const EVENT_MODAL_SHOW = 'show.mam';
+    // const EVENT_BEFORE_SUBMIT = 'beforeSubmit.mam';
+    // const EVENT_MODAL_SUBMIT = 'submit.mam';
 
     /**
      * @var array
@@ -37,7 +38,7 @@ class ModalAjaxMulti extends Modal
      * The selector to get url request when modal is opened for multy mode
      * @var string
      */
-    public $selector;
+    // public $selector;
 
     /**
      * The url to request when modal is opened for single mode
@@ -50,12 +51,6 @@ class ModalAjaxMulti extends Modal
      * @var string
      */
     public $pjaxContainer;
-
-    /**
-     * Submit the form via ajax
-     * @var boolean
-     */
-    public $ajaxSubmit = true;
 
     /**
      * Submit the form via ajax
@@ -101,18 +96,18 @@ class ModalAjaxMulti extends Modal
     public function init()
     {
         $this->options = ArrayHelper::merge($this->_defaultOptions, $this->options);
-        
         $this->clientOptions = ArrayHelper::merge($this->_defaultClientOptions, $this->clientOptions);
         
-        parent::init();
-        
-        if (!$this->url && !$this->selector) {
-            throw new InvalidConfigException('Not specified property "Url" or "Selector"');
+        // if (!$this->url && !$this->selector) {
+        if (!$this->url) {
+            throw new InvalidConfigException('Not specified property "Url"');
         }
 
-        if ($this->selector) {
-            $this->mode = self::MODE_MULTI;
-        }
+        // if ($this->selector) {
+        //     $this->mode = self::MODE_MULTI;
+        // }
+
+        parent::init();
     }
 
     /**
@@ -127,15 +122,17 @@ class ModalAjaxMulti extends Modal
 
         ModalAjaxMultiAsset::register($view);
 
-        switch ($this->mode) {
-            case self::MODE_SINGLE:
-                $this->registerSingleModal($id, $view);
-                break;
+        // switch ($this->mode) {
+        //     case self::MODE_SINGLE:
+        //         $this->registerSingleModal($id, $view);
+        //         break;
 
-            case self::MODE_MULTI:
-                $this->registerMultyModal($id, $view);
-                break;
-        }
+        //     case self::MODE_MULTI:
+        //         $this->registerMultyModal($id, $view);
+        //         break;
+        // }
+
+        $this->registerSingleModal($id, $view);
 		
 		$this->defaultSubmitEvent();
 
@@ -151,9 +148,8 @@ class ModalAjaxMulti extends Modal
         $url = is_array($this->url) ? Url::to($this->url) : $this->url;
 
         $view->registerJs("
-            jQuery('#$id').ModalAjaxMulti({
-                url: '$url',
-                ajaxSubmit: ".($this->ajaxSubmit ? "true" : "false")."
+            jQuery('#{$id}').modalAjaxMulti({
+                url: '{$url}'
             });
         ");
     }
@@ -162,29 +158,28 @@ class ModalAjaxMulti extends Modal
      * @param $id
      * @param View $view
      */
+    /* 
     protected function registerMultyModal($id, $view)
     {
         $view->registerJs("
-            jQuery('body').on('click', '$this->selector', function(e) {
+            jQuery('body').on('click', '{$this->selector}', function(e) {
                 $(this).attr('data-toggle', 'modal');
-                $(this).attr('data-target', '#$id');
+                $(this).attr('data-target', '#{$id}');
                 
                 var bs_url = $(this).attr('href');
                 var title = $(this).attr('title');
                 
-                if (title != null && title != '')
-				{
-					jQuery('#$id').find('.modal-header span').html('<h3 class=\'text-center\'>' + title + '</h3>');
+                if (title != null && title != '') {
+					jQuery('#{$id}').find('.modal-header span').html('<h3 class=\'text-center\'>' + title + '</h3>');
 				}
 				
-                jQuery('#$id').ModalAjaxMulti({
+                jQuery('#{$id}').modalAjaxMulti({
                     selector: $(this),
-                    url: bs_url,
-                    ajaxSubmit: ".($this->ajaxSubmit ? "true" : "false")."
+                    url: bs_url
                 });
             });
         ");
-    }
+    } */
 
     /**
      * register pjax event
@@ -198,15 +193,15 @@ class ModalAjaxMulti extends Modal
         }
 
         if ($this->pjaxContainer) {
-            $this->events[] = ["hidden.bs.modal", "function(event) { $.pjax.reload('$this->pjaxContainer'); }"];
+            $this->events[] = ["hidden.mam", "function(event) { $.pjax.reload('$this->pjaxContainer'); }"];
         }
 
         $script = implode("\r\n", $expression);
 
-        $this->events[] = [self::EVENT_MODAL_SUBMIT, new JsExpression("
+        $this->events[] = ['submit.mam', new JsExpression("
             function(event, data, status, xhr) {
-                if(status){
-                    $script
+                if(status) {
+                    {$script}
                 }
             }
         ")];
@@ -220,11 +215,11 @@ class ModalAjaxMulti extends Modal
     {
         $js = [];
         foreach ($this->events as $event) {
-            $js[] = ".on('".$event[0]."', ".$event[1].")";
+            $js[] = ".on('{$event[0]}', {$event[1]})";
         }
 
         if ($js) {
-            $script = "jQuery('#$id')" . implode("\r\n", $js);
+            $script = "jQuery('#{$id}')" . implode("\r\n", $js);
             $view->registerJs($script);
         }
     }
